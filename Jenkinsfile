@@ -13,8 +13,10 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             agent any
+
             steps {
                 checkout scm
             }
@@ -26,9 +28,11 @@ pipeline {
                     image 'python:3.13-slim'
                 }
             }
+
             steps {
                 sh '''
                     python -m pip install --upgrade pip
+
                     pip install -r requirements-dev.txt
 
                     mkdir -p test-results
@@ -39,10 +43,13 @@ pipeline {
                       --junitxml=test-results/pytest.xml
                 '''
             }
+
             post {
                 always {
-                    junit allowEmptyResults: true,
-                          testResults: 'test-results/pytest.xml'
+                    junit(
+                        allowEmptyResults: true,
+                        testResults: 'test-results/pytest.xml'
+                    )
 
                     archiveArtifacts(
                         allowEmptyArchive: true,
@@ -58,13 +65,20 @@ pipeline {
                     image 'python:3.13-slim'
                 }
             }
+
             steps {
                 sh '''
                     python -m pip install --upgrade pip
+
                     pip install -r requirements-dev.txt
 
+                    echo "Running Ruff..."
                     ruff check app tests
+
+                    echo "Running Bandit..."
                     bandit -r app -ll
+
+                    echo "Running pip-audit..."
                     pip-audit -r requirements.txt
                 '''
             }
@@ -76,10 +90,12 @@ pipeline {
                     image 'sonarsource/sonar-scanner-cli:12.2.0.4256_8.1.0'
                 }
             }
+
             steps {
                 withSonarQubeEnv('SonarQube-Local') {
                     sh '''
                         export SONAR_TOKEN="$SONAR_AUTH_TOKEN"
+
                         sonar-scanner
                     '''
                 }
@@ -88,19 +104,31 @@ pipeline {
 
         stage('Quality Gate') {
             agent none
+
             steps {
                 timeout(time: 10, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
+                    waitForQualityGate(
+                        abortPipeline: true
+                    )
                 }
             }
         }
 
         stage('Build Image') {
             agent any
+
             steps {
                 sh '''
-                    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
-                    docker save -o image.tar ${IMAGE_NAME}:${IMAGE_TAG}
+                    echo "Building Docker image..."
+
+                    docker build \
+                      -t ${IMAGE_NAME}:${IMAGE_TAG} .
+
+                    echo "Saving Docker image..."
+
+                    docker save \
+                      -o image.tar \
+                      ${IMAGE_NAME}:${IMAGE_TAG}
                 '''
 
                 archiveArtifacts(
@@ -113,7 +141,10 @@ pipeline {
 
     post {
         always {
+            echo "========================================"
             echo "Build result: ${currentBuild.currentResult}"
+            echo "Build number: ${BUILD_NUMBER}"
+            echo "========================================"
         }
     }
 }
