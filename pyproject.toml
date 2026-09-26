@@ -1,0 +1,7 @@
+[tool.ruff]
+line-length = 100
+
+exclude=[".venv", ".git", "__pycache__", "test-results"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
